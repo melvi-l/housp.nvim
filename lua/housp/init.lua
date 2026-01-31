@@ -1,7 +1,7 @@
 local core = require "housp.core"
 
-local function format_location(repo, branch, rel, line)
-    return string.format("[%s](%s) %s at line %d", repo, branch, rel, line)
+local function format_location(repo, branch, rel, anchor)
+    return string.format("[%s](%s) %s at line %s", repo, branch, rel, anchor)
 end
 
 local function open_browser(url)
@@ -9,6 +9,48 @@ local function open_browser(url)
         vim.fn.jobstart({ "cmd.exe", "/c", "start", url }, { detach = true })
     elseif vim.fn.executable("xdg-open") == 1 then
         vim.fn.jobstart({ "xdg-open", url }, { detach = true })
+    end
+end
+
+local function get_visual_range()
+    local mode = vim.fn.mode()
+    if mode ~= "v" and mode ~= "V" and mode ~= "\22" then
+        return nil
+    end
+
+    vim.cmd([[ execute "normal! \<ESC>" ]])
+    local start_pos = vim.fn.getcharpos("'<")
+    local end_pos = vim.fn.getcharpos("'>")
+    vim.cmd([[ execute "normal! gv" ]])
+
+    return {
+        start_line = start_pos[2],
+        start_col = start_pos[3],
+        end_line = end_pos[2],
+        end_col = end_pos[3],
+        mode = mode
+    }
+end
+
+local function get_lines_anchor()
+    local visual = get_visual_range()
+
+    if visual then
+        if visual.mode == "v" then
+            return string.format("#L%dC%d-L%dC%d",
+                visual.start_line,
+                visual.start_col,
+                visual.end_line,
+                visual.end_col
+            )
+        else -- V or \22
+            return string.format("#L%d-L%d",
+                visual.start_line,
+                visual.end_line
+            )
+        end
+    else
+        return "#L" .. vim.api.nvim_win_get_cursor(0)[1]
     end
 end
 
@@ -32,12 +74,13 @@ local function make_permalink()
     local branch = vim.fn.systemlist(
         "git -C " .. vim.fn.shellescape(dir) .. " branch --show-current"
     )[1]
-    local line = vim.api.nvim_win_get_cursor(0)[1]
     local rel = file:sub(#root + 2)
 
-    local url = core.format_permalink(host, group, repo, branch, rel, line)
+    local anchor = get_lines_anchor()
 
-    return url, repo, branch, rel, line
+    local url = core.format_permalink(host, group, repo, branch, rel, anchor)
+
+    return url, repo, branch, rel, anchor
 end
 
 local function setup_buffer(ref, path, line)
@@ -45,7 +88,7 @@ local function setup_buffer(ref, path, line)
         "git", "checkout", ref
     })
 
-    vim.cmd("edit " .. vim.fn.fnameescape(path))
+    vimecmd("edit " .. vim.fn.fnameescape(path))
 
     if line then
         vim.api.nvim_win_set_cursor(0, { line, 0 })
@@ -54,22 +97,22 @@ end
 
 return {
     copy_permalink = function()
-        local url, repo, branch, rel, line = make_permalink()
+        local url, repo, branch, rel, anchor = make_permalink()
         if not url then
             return vim.notify("Unable to create permalink from current location.", vim.log.levels.ERROR)
         end
 
         vim.fn.setreg("+", url)
-        vim.notify("Copied " .. format_location(repo, branch, rel, line), vim.log.levels.INFO)
+        vim.notify("Copied " .. format_location(repo, branch, rel, anchor), vim.log.levels.INFO)
     end,
     open_permalink = function()
-        local url, repo, branch, rel, line = make_permalink()
+        local url, repo, branch, rel, anchor = make_permalink()
         if not url then
             return vim.notify("Unable to open permalink in browser from current location.", vim.log.levels.ERROR)
         end
 
         open_browser(url)
-        vim.notify("Opened " .. format_location(repo, branch, rel, line) .. " in browser", vim.log.levels.INFO)
+        vim.notify("Opened " .. format_location(repo, branch, rel, anchor) .. " in browser", vim.log.levels.INFO)
     end,
     setup_permalink = function(url)
         if not url or url == "" then url = vim.fn.getreg("+") end

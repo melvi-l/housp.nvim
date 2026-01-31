@@ -36,7 +36,7 @@ core.extract_from_origin = function(origin)
     return host, group, project
 end
 
-core.validate_format_argument = function(host, group, repo, branch, path, line)
+core.validate_format_argument = function(host, group, repo, branch, path, anchor)
     -- Validate strings
     local function is_valid_string(value)
         return type(value) == "string" and value ~= ""
@@ -47,12 +47,12 @@ core.validate_format_argument = function(host, group, repo, branch, path, line)
         and is_valid_string(repo)
         and is_valid_string(branch)
         and is_valid_string(path)
-        and (not line or (type(line) == "number" and line > 0 and line % 1 == 0))
+        and (not anchor or is_valid_string(anchor))
 end
 
 -- TODO(melvil): add support bitbucket (src/...#lines-) and native gitlab (/-/blob)
-core.format_permalink = function(host, group, repo, branch, path, line)
-    if not core.validate_format_argument(host, group, repo, branch, path, line) then
+core.format_permalink = function(host, group, repo, branch, path, anchor)
+    if not core.validate_format_argument(host, group, repo, branch, path, anchor) then
         return nil
     end
     return string.format(
@@ -62,7 +62,7 @@ core.format_permalink = function(host, group, repo, branch, path, line)
         repo,
         branch,
         path,
-        line and ("#L" .. line) or ""
+        anchor or ""
     )
 end
 

@@ -36,33 +36,59 @@ core.extract_from_origin = function(origin)
     return host, group, project
 end
 
-core.validate_format_argument = function(host, group, repo, branch, path, anchor)
+core.validate_format_argument = function(info)
     -- Validate strings
     local function is_valid_string(value)
         return type(value) == "string" and value ~= ""
     end
 
-    return is_valid_string(host)
-        and is_valid_string(group)
-        and is_valid_string(repo)
-        and is_valid_string(branch)
-        and is_valid_string(path)
-        and (not anchor or is_valid_string(anchor))
+    return is_valid_string(info.host)
+        and is_valid_string(info.group)
+        and is_valid_string(info.repo)
+        and is_valid_string(info.branch)
+        and is_valid_string(info.path)
+        and (not info.anchor or is_valid_string(info.anchor))
 end
 
+
+local function get_anchor(host, line_info)
+    if host ~= "github.com" or line_info.mode == "line" then
+        return "#L" .. line_info.start_line
+    end
+
+    if line_info.mode == "multilines" then
+        return string.format("#L%d-L%d",
+            line_info.start_line,
+            line_info.end_line
+        )
+    end
+
+    if line_info.mode == "selection" then
+        return string.format("#L%dC%d-L%dC%d",
+            line_info.start_line,
+            line_info.start_col,
+            line_info.end_line,
+            line_info.end_col + 1 -- idk why
+        )
+    end
+
+    return ""
+end
+
+
 -- TODO(melvil): add support bitbucket (src/...#lines-) and native gitlab (/-/blob)
-core.format_permalink = function(host, group, repo, branch, path, anchor)
-    if not core.validate_format_argument(host, group, repo, branch, path, anchor) then
+core.format_permalink = function(info)
+    if not core.validate_format_argument(info) then
         return nil
     end
     return string.format(
         "https://%s/%s/%s/blob/%s/%s%s",
-        host,
-        group,
-        repo,
-        branch,
-        path,
-        anchor or ""
+        info.host,
+        info.group,
+        info.repo,
+        info.branch,
+        info.path,
+        get_anchor(info.host, info.line)
     )
 end
 

@@ -147,18 +147,20 @@ end
 
 return {
     copy_permalink = function()
-        local info, err = get_info()
-        if not info then return vim.notify(err, vim.log.levels.ERROR) end
+        return function()
+            local info, err = get_info()
+            if not info then return vim.notify(err, vim.log.levels.ERROR) end
 
-        local url = core.format_permalink(info)
-        if not url then
-            return vim.notify("Unable to create permalink from current location information.",
-                vim.log.levels.ERROR)
+            local url = core.format_permalink(info)
+            if not url then
+                return vim.notify("Unable to create permalink from current location information.",
+                    vim.log.levels.ERROR)
+            end
+
+            vim.fn.setreg("+", url)
+            vim.notify("Copied " .. format_location(info.repo, info.branch, info.path, info.line.start_line),
+                vim.log.levels.INFO)
         end
-
-        vim.fn.setreg("+", url)
-        vim.notify("Copied " .. format_location(info.repo, info.branch, info.path, info.line.start_line),
-            vim.log.levels.INFO)
     end,
     copy_snippet = function(opts)
         opts.should_dedent = opts.should_dedent ~= false
@@ -192,28 +194,32 @@ return {
         end
     end,
     open_permalink = function()
-        local info, err = get_info()
-        if not info then return vim.notify(err, vim.log.levels.ERROR) end
+        return function()
+            local info, err = get_info()
+            if not info then return vim.notify(err, vim.log.levels.ERROR) end
 
-        local url = core.format_permalink(info)
-        if not url then
-            return vim.notify("Unable to create permalink from current location information.",
-                vim.log.levels.ERROR)
+            local url = core.format_permalink(info)
+            if not url then
+                return vim.notify("Unable to create permalink from current location information.",
+                    vim.log.levels.ERROR)
+            end
+
+            open_browser(url)
+            vim.notify(
+                "Opened " .. format_location(info.repo, info.branch, info.path, info.line.start_line) .. " in browser",
+                vim.log.levels.INFO)
         end
-
-        open_browser(url)
-        vim.notify(
-            "Opened " .. format_location(info.repo, info.branch, info.path, info.line.start_line) .. " in browser",
-            vim.log.levels.INFO)
     end,
-    setup_permalink = function(url)
-        if not url or url == "" then url = vim.fn.getreg("+") end
+    setup_permalink = function()
+        return function(url)
+            if not url or url == "" then url = vim.fn.getreg("+") end
 
-        local ref, path, line = core.parse_permalink(url)
-        if not ref or not path then
-            return vim.notify("Unsupported Git URL", vim.log.levels.ERROR)
+            local ref, path, line = core.parse_permalink(url)
+            if not ref or not path then
+                return vim.notify("Unsupported Git URL", vim.log.levels.ERROR)
+            end
+
+            setup_buffer(ref, path, line)
         end
-
-        setup_buffer(ref, path, line)
     end
 }

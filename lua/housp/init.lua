@@ -6,9 +6,9 @@ end
 
 local function open_browser(url)
     if vim.fn.has("wsl") == 1 then
-        vim.fn.jobstart({ "cmd.exe", "/c", "start", url }, { detach = true })
+				vim.system({"explorer.exe", url}, {detach = true})
     elseif vim.fn.executable("xdg-open") == 1 then
-        vim.fn.jobstart({ "xdg-open", url }, { detach = true })
+        vim.system({ "xdg-open", url }, { detach = true })
     end
 end
 
@@ -145,6 +145,16 @@ local function setup_buffer(ref, path, line)
     end
 end
 
+local function system_wise_yank(text)
+	if vim.fn.has("wsl") == 1 then
+		vim.system({"clip.exe"}, {
+			stdin = text,
+		})
+		else
+			vim.fn.setreg("unnamedplus", text)
+	end
+end
+
 return {
     copy_permalink = function()
         return function()
@@ -157,7 +167,7 @@ return {
                     vim.log.levels.ERROR)
             end
 
-            vim.fn.setreg("+", url)
+						system_wise_yank(url)
             vim.notify("Copied " .. format_location(info.repo, info.branch, info.path, info.line.start_line),
                 vim.log.levels.INFO)
         end
